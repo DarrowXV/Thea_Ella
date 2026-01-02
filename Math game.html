@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Math Fun for Thea & Ella</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --accent: #FF6B6B;
+            --bg: #F0F4F8;
+            --card: #ffffff;
+            --text: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            /* Prevent bouncing on iPad */
+            touch-action: manipulation; 
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            background: var(--card);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        /* Profile Selection Screen */
+        #profile-select {
+            display: block;
+        }
+
+        .profile-btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin: 15px 0;
+            font-size: 1.5rem;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            color: white;
+            font-weight: bold;
+        }
+
+        .profile-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-thea { background-color: #9B59B6; } /* Purple */
+        .btn-ella { background-color: #2ECC71; } /* Green */
+
+        /* Game Screen */
+        #game-area {
+            display: none;
+        }
+
+        .score-board {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .question-box {
+            font-size: 3.5rem;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        input[type="number"] {
+            width: 120px;
+            height: 60px;
+            font-size: 2rem;
+            text-align: center;
+            border: 3px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary);
+        }
+
+        .submit-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #95a5a6;
+            margin-top: 20px;
+            font-size: 1rem;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .feedback {
+            height: 30px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .correct { color: #27ae60; }
+        .wrong { color: #c0392b; }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="profile-select">
+            <h1>Who is playing?</h1>
+            <p>Select your profile to start</p>
+            <button class="profile-btn btn-thea" onclick="startGame('Thea')">Thea (Age 10)</button>
+            <button class="profile-btn btn-ella" onclick="startGame('Ella')">Ella (Age 7)</button>
+        </div>
+
+        <div id="game-area">
+            <div class="score-board">
+                Player: <span id="player-name"></span> | Score: <span id="score">0</span>
+            </div>
+            
+            <div class="question-box" id="question">
+                2 + 2 = ?
+            </div>
+
+            <input type="number" id="answer-input" placeholder="?" pattern="\d*">
+            
+            <button class="submit-btn" onclick="checkAnswer()">Submit</button>
+            
+            <div class="feedback" id="feedback"></div>
+
+            <button class="back-btn" onclick="goHome()">Change Player</button>
+        </div>
+    </div>
+
+    <script>
+        let currentProfile = '';
+        let currentAnswer = 0;
+        let score = 0;
+
+        const profileScreen = document.getElementById('profile-select');
+        const gameScreen = document.getElementById('game-area');
+        const playerNameEl = document.getElementById('player-name');
+        const scoreEl = document.getElementById('score');
+        const questionEl = document.getElementById('question');
+        const inputEl = document.getElementById('answer-input');
+        const feedbackEl = document.getElementById('feedback');
+
+        function startGame(name) {
+            currentProfile = name;
+            score = 0;
+            scoreEl.innerText = score;
+            playerNameEl.innerText = name;
+            
+            profileScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            
+            generateQuestion();
+        }
+
+        function goHome() {
+            gameScreen.style.display = 'none';
+            profileScreen.style.display = 'block';
+            inputEl.value = '';
+            feedbackEl.innerText = '';
+        }
+
+        function generateQuestion() {
+            inputEl.value = '';
+            inputEl.focus();
+            feedbackEl.innerText = '';
+            
+            let num1, num2, operator;
+
+            if (currentProfile === 'Ella') {
+                // Ella (Age 7): Add/Sub, numbers 0-20
+                // 70% chance addition, 30% subtraction
+                if (Math.random() > 0.3) {
+                    operator = '+';
+                    num1 = Math.floor(Math.random() * 11); // 0-10
+                    num2 = Math.floor(Math.random() * 11); // 0-10
+                    currentAnswer = num1 + num2;
+                } else {
+                    operator = '-';
+                    num1 = Math.floor(Math.random() * 16) + 4; // 4-20
+                    num2 = Math.floor(Math.random() * (num1)); // Ensure positive result
+                    currentAnswer = num1 - num2;
+                }
+            } else {
+                // Thea (Age 10): Add/Sub larger, Mult/Div
+                const type = Math.random();
+                
+                if (type < 0.25) { 
+                    // Addition (Larger numbers)
+                    operator = '+';
+                    num1 = Math.floor(Math.random() * 50) + 10; 
+                    num2 = Math.floor(Math.random() * 50) + 10;
+                    currentAnswer = num1 + num2;
+                } else if (type < 0.5) {
+                    // Subtraction (Larger numbers)
+                    operator = '-';
+                    num1 = Math.floor(Math.random() * 80) + 20;
+                    num2 = Math.floor(Math.random() * (num1 - 10)) + 5;
+                    currentAnswer = num1 - num2;
+                } else if (type < 0.8) {
+                    // Multiplication (Tables 2-12)
+                    operator = '×';
+                    num1 = Math.floor(Math.random() * 11) + 2; 
+                    num2 = Math.floor(Math.random() * 11) + 2;
+                    currentAnswer = num1 * num2;
+                } else {
+                    // Division (Clean integers only)
+                    operator = '÷';
+                    num2 = Math.floor(Math.random() * 10) + 2; // Divisor 2-11
+                    currentAnswer = Math.floor(Math.random() * 11) + 1; // Answer 1-11
+                    num1 = currentAnswer * num2; // Calculate the dividend
+                }
+            }
+
+            questionEl.innerText = `${num1} ${operator} ${num2}`;
+        }
+
+        function checkAnswer() {
+            const userVal = parseInt(inputEl.value);
+            
+            if (isNaN(userVal)) return;
+
+            if (userVal === currentAnswer) {
+                score += 10;
+                scoreEl.innerText = score;
+                feedbackEl.innerText = "Correct! Great Job!";
+                feedbackEl.className = "feedback correct";
+                
+                // Small delay before next question
+                setTimeout(generateQuestion, 1000);
+            } else {
+                feedbackEl.innerText = "Try again!";
+                feedbackEl.className = "feedback wrong";
+                inputEl.value = '';
+                inputEl.focus();
+            }
+        }
+
+        // Allow pressing "Enter" key to submit
+        inputEl.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                checkAnswer();
+            }
+        });
+
+    </script>
+</body>
+</html>
