@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v3.2</title>
+    <title>Math Fun v3.3</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -38,7 +38,7 @@
             margin-top: 20px;
             position: relative;
             z-index: 10;
-            padding-bottom: 30px; /* Space for version number */
+            padding-bottom: 30px; 
         }
 
         h1 { margin: 0 0 15px 0; color: var(--primary); }
@@ -117,6 +117,9 @@
             margin: 10px 0;
             display: inline-block;
             text-align: right;
+            background: rgba(255,255,255,0.5);
+            padding: 10px;
+            border-radius: 5px;
         }
         
         /* Stickers Area */
@@ -210,7 +213,7 @@
             </div>
         </div>
 
-        <div class="version">v3.2</div>
+        <div class="version">v3.3</div>
     </div>
 
     <script>
@@ -284,7 +287,7 @@
         
         function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-        // --- UPDATED TEACHING LOGIC ---
+        // --- UPDATED TEACHING LOGIC (v3.3) ---
         function toggleTeach() {
             if (teachBox.style.display === 'block') {
                 teachBox.style.display = 'none';
@@ -307,7 +310,7 @@
                     html += `<p>Put your finger over <b>${qNum2}</b> of them. How many are left?</p>`;
                 }
             } 
-            // Strategies for Thea (Updated for v3.2)
+            // Strategies for Thea (SMARTER HINTS)
             else {
                 if (qOperator === '+') {
                     html += `<strong>Split Strategy:</strong><br>`;
@@ -316,16 +319,28 @@
                     html += `3. Add those answers together.`;
                 } 
                 else if (qOperator === '-') {
-                    // NEW: Column Subtraction Hint
+                    let ones1 = qNum1 % 10;
+                    let ones2 = qNum2 % 10;
+                    
                     html += `<strong>Column Method:</strong><br>`;
-                    html += `Use the scratchpad to write it like this:<br>`;
+                    html += `Write it on the scratchpad like this:<br>`;
                     html += `<div class="vertical-math">
                              &nbsp;&nbsp;${qNum1}<br>
                              - ${qNum2}<br>
                              -----
                              </div><br>`;
-                    html += `1. Subtract the Ones: <b>${qNum1%10} - ${qNum2%10}</b><br>`;
-                    html += `2. Subtract the Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
+                    
+                    if (ones1 < ones2) {
+                        // BORROWING SCENARIO
+                        html += `<strong>⚠️ Wait! You can't do ${ones1} - ${ones2}</strong><br>`;
+                        html += `1. Borrow 10 from the neighbor.<br>`;
+                        html += `2. Now subtract the ones: <b>${ones1 + 10} - ${ones2}</b><br>`;
+                        html += `3. Subtract the tens (Remember you took one away!)`;
+                    } else {
+                        // NORMAL SCENARIO
+                        html += `1. Subtract the Ones: <b>${ones1} - ${ones2}</b><br>`;
+                        html += `2. Subtract the Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
+                    }
                 } 
                 else if (qOperator === '×') {
                     html += `<strong>Skip Counting:</strong><br>`;
@@ -370,8 +385,6 @@
                     qAnswer = qNum1 + qNum2;
                 } else if (type < 0.5) {
                     qOperator = '-';
-                    // Generate numbers specifically good for non-borrowing column practice first
-                    // but allow harder ones too.
                     qNum1 = Math.floor(Math.random() * 90) + 20;
                     qNum2 = Math.floor(Math.random() * (qNum1 - 10)) + 5;
                     qAnswer = qNum1 - qNum2;
