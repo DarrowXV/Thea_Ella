@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v3.4</title>
+    <title>Math Fun v4.0</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -26,6 +26,18 @@
             align-items: center;
             min-height: 100vh;
             touch-action: manipulation; 
+            overflow-x: hidden;
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
         }
 
         .container {
@@ -39,6 +51,7 @@
             position: relative;
             z-index: 10;
             padding-bottom: 30px; 
+            transition: transform 0.1s;
         }
 
         h1 { margin: 0 0 15px 0; color: var(--primary); }
@@ -62,6 +75,8 @@
         .btn-ella { background-color: #2ECC71; }
         .btn-submit { background-color: var(--primary); font-size: 1.5rem; }
         .btn-clear { background-color: #95a5a6; width: auto; display: inline-block; padding: 5px 15px; font-size: 0.9rem; margin-top: 5px;}
+        .btn-history { background-color: #34495E; margin-top: 20px; }
+        .btn-danger { background-color: #e74c3c; font-size: 1rem; padding: 10px; }
         
         .toggle-draw { background: #f1c40f; color: #333; margin-bottom: 5px; }
         .btn-teach { background: #E67E22; color: white; margin-bottom: 15px; }
@@ -131,10 +146,20 @@
         }
         .sticker { font-size: 2rem; margin: 5px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: inline-block; }
         
+        /* Animations */
         @keyframes popIn {
-            0% { transform: scale(0); }
+            0% { transform: scale(0); } 
+            50% { transform: scale(1.2); }
             100% { transform: scale(1); }
         }
+        
+        @keyframes bounceText {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-anim { animation: bounceText 0.4s ease-out; }
 
         /* Scratchpad Canvas */
         #scratch-container {
@@ -154,6 +179,27 @@
             cursor: crosshair;
         }
 
+        /* History List */
+        #history-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-item {
+            background: #f9f9f9;
+            border-left: 5px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        .h-thea { border-left-color: #9B59B6; }
+        .h-ella { border-left-color: #2ECC71; }
+        .h-date { font-size: 0.8rem; color: #999; display: block; margin-bottom: 5px;}
+        .h-score { font-weight: bold; font-size: 1.1rem; }
+
         .version {
             position: absolute;
             bottom: 5px;
@@ -164,7 +210,7 @@
         }
 
         .hidden { display: none !important; }
-        .feedback { height: 25px; font-weight: bold; font-size: 1.2rem; margin-top: 10px; }
+        .feedback { min-height: 30px; font-weight: bold; font-size: 1.4rem; margin-top: 10px; }
         .correct { color: var(--success); }
         .wrong { color: var(--accent); }
 
@@ -172,12 +218,24 @@
 </head>
 <body>
 
+    <canvas id="confetti-canvas"></canvas>
+
     <div class="container" id="main-card">
         <div id="profile-select">
             <h1>Math Time! 🎓</h1>
             <p>Select your profile:</p>
             <button class="btn btn-thea" onclick="startGame('Thea')">Thea (Age 10)</button>
             <button class="btn btn-ella" onclick="startGame('Ella')">Ella (Age 7)</button>
+            
+            <button class="btn btn-history" onclick="showHistory()">📜 View History</button>
+        </div>
+
+        <div id="history-screen" class="hidden">
+            <h1>Past Games</h1>
+            <ul id="history-list">
+                </ul>
+            <button class="btn btn-danger" onclick="clearHistory()">🗑️ Clear History</button>
+            <button class="btn" style="background:#bdc3c7; color:#333;" onclick="closeHistory()">⬅ Back</button>
         </div>
 
         <div id="game-area" class="hidden">
@@ -213,24 +271,25 @@
             </div>
         </div>
 
-        <div class="version">v3.4</div>
+        <div class="version">v4.0</div>
     </div>
 
     <script>
         // GAME STATE
         let currentProfile = '';
         let streak = 0;
+        let sessionScore = 0; // Total correct in this session
+        let sessionMaxStreak = 0; // Best streak in this session
         
-        // Current Question Data
-        let qNum1 = 0;
-        let qNum2 = 0;
-        let qOperator = '';
-        let qAnswer = 0;
-        
-        // Sticker Collection
+        // Data
+        let qNum1 = 0, qNum2 = 0, qOperator = '', qAnswer = 0;
         const stickers = ['⭐', '🦄', '🦖', '🚀', '🌈', '🍦', '🍩', '🦋', '🐼', '🐱', '🐶', '🐸', '🐨', '🤖', '👾', '🎃', '⚽', '🎨'];
+        const praises = ["Awesome!", "Great Job!", "So Smart!", "Nailed it!", "Wow!", "Keep it up!", "Super!", "Fantastic!", "Math Wizard!"];
+        const bigPraises = ["UNSTOPPABLE! 🔥", "LEGENDARY!", "MATH GENIUS!", "INCREDIBLE STREAK!"];
 
+        // UI Elements
         const profileScreen = document.getElementById('profile-select');
+        const historyScreen = document.getElementById('history-screen');
         const gameScreen = document.getElementById('game-area');
         const streakEl = document.getElementById('streak');
         const questionEl = document.getElementById('question');
@@ -257,16 +316,72 @@
         function startGame(name) {
             currentProfile = name;
             streak = 0;
+            sessionScore = 0;
+            sessionMaxStreak = 0;
+            
             streakEl.innerText = '0';
             stickersContainer.innerHTML = ''; 
-            
             profileScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             setTimeout(resizeCanvas, 50);
             generateQuestion();
         }
 
+        // --- HISTORY LOGIC ---
+        function saveSession() {
+            if (sessionScore === 0) return; // Don't save empty games
+
+            const history = JSON.parse(localStorage.getItem('mathHistory')) || [];
+            const newEntry = {
+                name: currentProfile,
+                date: new Date().toLocaleString(),
+                score: sessionScore,
+                bestStreak: sessionMaxStreak
+            };
+            history.unshift(newEntry); // Add to top
+            if (history.length > 50) history.pop(); // Keep max 50 items
+            localStorage.setItem('mathHistory', JSON.stringify(history));
+        }
+
+        function showHistory() {
+            profileScreen.classList.add('hidden');
+            historyScreen.classList.remove('hidden');
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            
+            const history = JSON.parse(localStorage.getItem('mathHistory')) || [];
+            
+            if (history.length === 0) {
+                list.innerHTML = '<li style="text-align:center; color:#999;">No games played yet!</li>';
+                return;
+            }
+
+            history.forEach(item => {
+                const li = document.createElement('li');
+                li.className = `history-item h-${item.name.toLowerCase()}`;
+                li.innerHTML = `
+                    <span class="h-date">${item.date}</span>
+                    <span class="h-score">${item.name}: Solved ${item.score}</span>
+                    <br>Best Streak: 🔥 ${item.bestStreak}
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function clearHistory() {
+            if(confirm("Are you sure you want to clear the history?")) {
+                localStorage.removeItem('mathHistory');
+                showHistory(); // Refresh view
+            }
+        }
+
+        function closeHistory() {
+            historyScreen.classList.add('hidden');
+            profileScreen.classList.remove('hidden');
+        }
+
         function goHome() {
+            saveSession(); // Save data before exiting
             gameScreen.classList.add('hidden');
             profileScreen.classList.remove('hidden');
             inputEl.value = '';
@@ -276,6 +391,7 @@
             teachBox.style.display = 'none';
         }
 
+        // --- GENERAL GAME UTILS ---
         function toggleScratchpad() {
             if (scratchContainer.style.display === 'block') {
                 scratchContainer.style.display = 'none';
@@ -287,7 +403,7 @@
         
         function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-        // --- UPDATED TEACHING LOGIC (v3.4) ---
+        // --- MATH TEACHING LOGIC ---
         function toggleTeach() {
             if (teachBox.style.display === 'block') {
                 teachBox.style.display = 'none';
@@ -297,7 +413,6 @@
             teachBox.style.display = 'block';
             let html = '';
 
-            // Visuals for Ella (and small numbers for Thea)
             if (currentProfile === 'Ella' || (currentProfile === 'Thea' && qNum1 < 10 && qOperator !== '×')) {
                 if (qOperator === '+') {
                     html += `<p>Here are the groups. Can you count them all?</p>`;
@@ -309,115 +424,69 @@
                     for(let i=0; i<qNum1; i++) html += `<span class="dot"></span>`;
                     html += `<p>Put your finger over <b>${qNum2}</b> of them. How many are left?</p>`;
                 }
-            } 
-            // Strategies for Thea
-            else {
+            } else {
                 if (qOperator === '+') {
-                    // NEW: Column Addition with Carrying Logic
                     let ones1 = qNum1 % 10;
                     let ones2 = qNum2 % 10;
                     let sumOnes = ones1 + ones2;
-                    
-                    html += `<strong>Column Method:</strong><br>`;
-                    html += `Write it vertically:<br>`;
-                    html += `<div class="vertical-math">
-                             &nbsp;&nbsp;${qNum1}<br>
-                             + ${qNum2}<br>
-                             -----
-                             </div><br>`;
+                    html += `<strong>Column Method:</strong><br>Write it vertically:<br>`;
+                    html += `<div class="vertical-math">&nbsp;&nbsp;${qNum1}<br>+ ${qNum2}<br>-----</div><br>`;
                     
                     if (sumOnes > 9) {
-                         // Carrying Required
                         html += `1. Add the Ones: <b>${ones1} + ${ones2} = ${sumOnes}</b><br>`;
-                        html += `2. That is two digits! Write down the <b>${sumOnes%10}</b> and carry the <b>1</b>.<br>`;
-                        html += `3. Add the Tens: <b>1 (carried) + ${Math.floor(qNum1/10)} + ${Math.floor(qNum2/10)}</b>`;
+                        html += `2. Write down <b>${sumOnes%10}</b> and carry the <b>1</b>.<br>`;
+                        html += `3. Add the Tens: <b>1 + ${Math.floor(qNum1/10)} + ${Math.floor(qNum2/10)}</b>`;
                     } else {
-                        // Simple
                         html += `1. Add the Ones: <b>${ones1} + ${ones2} = ${sumOnes}</b><br>`;
                         html += `2. Add the Tens: <b>${Math.floor(qNum1/10)} + ${Math.floor(qNum2/10)}</b>`;
                     }
-                } 
-                else if (qOperator === '-') {
-                    // Column Subtraction with Borrowing Logic
+                } else if (qOperator === '-') {
                     let ones1 = qNum1 % 10;
                     let ones2 = qNum2 % 10;
-                    
-                    html += `<strong>Column Method:</strong><br>`;
-                    html += `Write it vertically:<br>`;
-                    html += `<div class="vertical-math">
-                             &nbsp;&nbsp;${qNum1}<br>
-                             - ${qNum2}<br>
-                             -----
-                             </div><br>`;
+                    html += `<strong>Column Method:</strong><br>Write it vertically:<br>`;
+                    html += `<div class="vertical-math">&nbsp;&nbsp;${qNum1}<br>- ${qNum2}<br>-----</div><br>`;
                     
                     if (ones1 < ones2) {
-                        // Borrowing Required
-                        html += `<strong>⚠️ Wait! You can't do ${ones1} - ${ones2}</strong><br>`;
+                        html += `<strong>⚠️ You can't do ${ones1} - ${ones2}</strong><br>`;
                         html += `1. Borrow 10 from the neighbor.<br>`;
-                        html += `2. Now subtract the ones: <b>${ones1 + 10} - ${ones2}</b><br>`;
-                        html += `3. Subtract the tens (Remember you took one away!)`;
+                        html += `2. Now subtract ones: <b>${ones1 + 10} - ${ones2}</b><br>`;
+                        html += `3. Subtract tens (You took one away!)`;
                     } else {
-                        // Simple
-                        html += `1. Subtract the Ones: <b>${ones1} - ${ones2}</b><br>`;
-                        html += `2. Subtract the Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
+                        html += `1. Subtract Ones: <b>${ones1} - ${ones2}</b><br>`;
+                        html += `2. Subtract Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
                     }
-                } 
-                else if (qOperator === '×') {
-                    html += `<strong>Skip Counting:</strong><br>`;
-                    html += `Count by <b>${qNum2}</b>, <b>${qNum1}</b> times.<br>`;
-                    html += `<i>Ex: ${qNum2}, ${qNum2*2}, ${qNum2*3}... keep going!</i>`;
+                } else if (qOperator === '×') {
+                    html += `<strong>Skip Counting:</strong><br>Count by <b>${qNum2}</b>, <b>${qNum1}</b> times.<br>`;
                 } else if (qOperator === '÷') {
-                    html += `<strong>Reverse It:</strong><br>`;
-                    html += `Ask yourself: <br>`;
-                    html += `❓ × <b>${qNum2}</b> = <b>${qNum1}</b>`;
+                    html += `<strong>Reverse It:</strong><br>❓ × <b>${qNum2}</b> = <b>${qNum1}</b>`;
                 }
             }
-            
             teachBox.innerHTML = html;
         }
 
-
-        // --- MATH GENERATION ---
         function generateQuestion() {
             inputEl.value = '';
             inputEl.focus();
             feedbackEl.innerText = '';
+            feedbackEl.className = 'feedback'; 
             teachBox.style.display = 'none'; 
             
-            if (currentProfile === 'Ella') {
+             if (currentProfile === 'Ella') {
                 if (Math.random() > 0.4) {
-                    qOperator = '+';
-                    qNum1 = Math.floor(Math.random() * 10) + 1; 
-                    qNum2 = Math.floor(Math.random() * 10) + 1; 
-                    qAnswer = qNum1 + qNum2;
+                    qOperator = '+'; qNum1 = Math.floor(Math.random() * 10) + 1; qNum2 = Math.floor(Math.random() * 10) + 1; qAnswer = qNum1 + qNum2;
                 } else {
-                    qOperator = '-';
-                    qNum1 = Math.floor(Math.random() * 10) + 5; 
-                    qNum2 = Math.floor(Math.random() * (qNum1 - 2)) + 1;
-                    qAnswer = qNum1 - qNum2;
+                    qOperator = '-'; qNum1 = Math.floor(Math.random() * 10) + 5; qNum2 = Math.floor(Math.random() * (qNum1 - 2)) + 1; qAnswer = qNum1 - qNum2;
                 }
             } else {
                 const type = Math.random();
                 if (type < 0.25) { 
-                    qOperator = '+';
-                    qNum1 = Math.floor(Math.random() * 80) + 10; 
-                    qNum2 = Math.floor(Math.random() * 80) + 10;
-                    qAnswer = qNum1 + qNum2;
+                    qOperator = '+'; qNum1 = Math.floor(Math.random() * 80) + 10; qNum2 = Math.floor(Math.random() * 80) + 10; qAnswer = qNum1 + qNum2;
                 } else if (type < 0.5) {
-                    qOperator = '-';
-                    qNum1 = Math.floor(Math.random() * 90) + 20;
-                    qNum2 = Math.floor(Math.random() * (qNum1 - 10)) + 5;
-                    qAnswer = qNum1 - qNum2;
+                    qOperator = '-'; qNum1 = Math.floor(Math.random() * 90) + 20; qNum2 = Math.floor(Math.random() * (qNum1 - 10)) + 5; qAnswer = qNum1 - qNum2;
                 } else if (type < 0.8) {
-                    qOperator = '×';
-                    qNum1 = Math.floor(Math.random() * 10) + 2; 
-                    qNum2 = Math.floor(Math.random() * 10) + 2;
-                    qAnswer = qNum1 * qNum2;
+                    qOperator = '×'; qNum1 = Math.floor(Math.random() * 10) + 2; qNum2 = Math.floor(Math.random() * 10) + 2; qAnswer = qNum1 * qNum2;
                 } else {
-                    qOperator = '÷';
-                    qNum2 = Math.floor(Math.random() * 9) + 2; 
-                    qAnswer = Math.floor(Math.random() * 10) + 1; 
-                    qNum1 = qAnswer * qNum2; 
+                    qOperator = '÷'; qNum2 = Math.floor(Math.random() * 9) + 2; qAnswer = Math.floor(Math.random() * 10) + 1; qNum1 = qAnswer * qNum2; 
                 }
             }
             questionEl.innerText = `${qNum1} ${qOperator} ${qNum2}`;
@@ -429,21 +498,29 @@
 
             if (userVal === qAnswer) {
                 streak++;
+                sessionScore++; 
+                if (streak > sessionMaxStreak) sessionMaxStreak = streak;
+
                 streakEl.innerText = streak;
-                feedbackEl.innerText = "Correct! 🎉";
-                feedbackEl.className = "feedback correct";
                 
-                if (streak > 0 && streak % 5 === 0) {
+                let cheer = praises[Math.floor(Math.random() * praises.length)];
+                let isBigMilestone = (streak > 0 && streak % 5 === 0);
+
+                if (isBigMilestone) {
+                    cheer = bigPraises[Math.floor(Math.random() * bigPraises.length)];
+                    triggerConfetti();
                     addSticker();
-                    feedbackEl.innerText = "Correct! NEW STICKER! 🎁";
                 }
 
-                setTimeout(generateQuestion, 1200);
+                feedbackEl.innerText = cheer;
+                feedbackEl.className = "feedback correct pop-anim";
+                
+                setTimeout(generateQuestion, 1500);
             } else {
                 streak = 0;
                 streakEl.innerText = streak;
                 feedbackEl.innerText = "Try again! ❌";
-                feedbackEl.className = "feedback wrong";
+                feedbackEl.className = "feedback wrong pop-anim";
                 inputEl.value = '';
                 inputEl.focus();
             }
@@ -457,9 +534,46 @@
             stickersContainer.appendChild(span);
         }
 
-        inputEl.addEventListener("keypress", function(event) {
-            if (event.key === "Enter") checkAnswer();
-        });
+        inputEl.addEventListener("keypress", function(event) { if (event.key === "Enter") checkAnswer(); });
+
+        // --- CONFETTI EFFECT ---
+        function triggerConfetti() {
+            const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'];
+            const confCanvas = document.getElementById('confetti-canvas');
+            const confCtx = confCanvas.getContext('2d');
+            confCanvas.width = window.innerWidth;
+            confCanvas.height = window.innerHeight;
+
+            let particles = [];
+            for(let i=0; i<100; i++) {
+                particles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    w: Math.random() * 10 + 5,
+                    h: Math.random() * 10 + 5,
+                    vx: Math.random() * 20 - 10,
+                    vy: Math.random() * 20 - 10,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 100
+                });
+            }
+
+            function update() {
+                confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+                particles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.5; // Gravity
+                    p.life--;
+                    confCtx.fillStyle = p.color;
+                    confCtx.fillRect(p.x, p.y, p.w, p.h);
+                    if(p.life <= 0) particles.splice(index, 1);
+                });
+                if(particles.length > 0) requestAnimationFrame(update);
+                else confCtx.clearRect(0,0,confCanvas.width,confCanvas.height);
+            }
+            update();
+        }
 
         // DRAWING HANDLERS
         function startDraw(e) { isDrawing = true; draw(e); }
