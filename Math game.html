@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v3.3</title>
+    <title>Math Fun v3.4</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -213,7 +213,7 @@
             </div>
         </div>
 
-        <div class="version">v3.3</div>
+        <div class="version">v3.4</div>
     </div>
 
     <script>
@@ -287,7 +287,7 @@
         
         function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-        // --- UPDATED TEACHING LOGIC (v3.3) ---
+        // --- UPDATED TEACHING LOGIC (v3.4) ---
         function toggleTeach() {
             if (teachBox.style.display === 'block') {
                 teachBox.style.display = 'none';
@@ -310,20 +310,40 @@
                     html += `<p>Put your finger over <b>${qNum2}</b> of them. How many are left?</p>`;
                 }
             } 
-            // Strategies for Thea (SMARTER HINTS)
+            // Strategies for Thea
             else {
                 if (qOperator === '+') {
-                    html += `<strong>Split Strategy:</strong><br>`;
-                    html += `1. Add the Tens: <b>${Math.floor(qNum1/10)*10} + ${Math.floor(qNum2/10)*10} = ?</b><br>`;
-                    html += `2. Add the Ones: <b>${qNum1%10} + ${qNum2%10} = ?</b><br>`;
-                    html += `3. Add those answers together.`;
+                    // NEW: Column Addition with Carrying Logic
+                    let ones1 = qNum1 % 10;
+                    let ones2 = qNum2 % 10;
+                    let sumOnes = ones1 + ones2;
+                    
+                    html += `<strong>Column Method:</strong><br>`;
+                    html += `Write it vertically:<br>`;
+                    html += `<div class="vertical-math">
+                             &nbsp;&nbsp;${qNum1}<br>
+                             + ${qNum2}<br>
+                             -----
+                             </div><br>`;
+                    
+                    if (sumOnes > 9) {
+                         // Carrying Required
+                        html += `1. Add the Ones: <b>${ones1} + ${ones2} = ${sumOnes}</b><br>`;
+                        html += `2. That is two digits! Write down the <b>${sumOnes%10}</b> and carry the <b>1</b>.<br>`;
+                        html += `3. Add the Tens: <b>1 (carried) + ${Math.floor(qNum1/10)} + ${Math.floor(qNum2/10)}</b>`;
+                    } else {
+                        // Simple
+                        html += `1. Add the Ones: <b>${ones1} + ${ones2} = ${sumOnes}</b><br>`;
+                        html += `2. Add the Tens: <b>${Math.floor(qNum1/10)} + ${Math.floor(qNum2/10)}</b>`;
+                    }
                 } 
                 else if (qOperator === '-') {
+                    // Column Subtraction with Borrowing Logic
                     let ones1 = qNum1 % 10;
                     let ones2 = qNum2 % 10;
                     
                     html += `<strong>Column Method:</strong><br>`;
-                    html += `Write it on the scratchpad like this:<br>`;
+                    html += `Write it vertically:<br>`;
                     html += `<div class="vertical-math">
                              &nbsp;&nbsp;${qNum1}<br>
                              - ${qNum2}<br>
@@ -331,13 +351,13 @@
                              </div><br>`;
                     
                     if (ones1 < ones2) {
-                        // BORROWING SCENARIO
+                        // Borrowing Required
                         html += `<strong>⚠️ Wait! You can't do ${ones1} - ${ones2}</strong><br>`;
                         html += `1. Borrow 10 from the neighbor.<br>`;
                         html += `2. Now subtract the ones: <b>${ones1 + 10} - ${ones2}</b><br>`;
                         html += `3. Subtract the tens (Remember you took one away!)`;
                     } else {
-                        // NORMAL SCENARIO
+                        // Simple
                         html += `1. Subtract the Ones: <b>${ones1} - ${ones2}</b><br>`;
                         html += `2. Subtract the Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
                     }
