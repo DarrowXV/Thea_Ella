@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v3.1</title>
+    <title>Math Fun v3.2</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -38,6 +38,7 @@
             margin-top: 20px;
             position: relative;
             z-index: 10;
+            padding-bottom: 30px; /* Space for version number */
         }
 
         h1 { margin: 0 0 15px 0; color: var(--primary); }
@@ -108,6 +109,15 @@
             display: inline-block;
             margin: 2px;
         }
+        .vertical-math {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            line-height: 1.2;
+            margin: 10px 0;
+            display: inline-block;
+            text-align: right;
+        }
         
         /* Stickers Area */
         #sticker-area {
@@ -139,6 +149,15 @@
             height: 250px;
             border-radius: 10px;
             cursor: crosshair;
+        }
+
+        .version {
+            position: absolute;
+            bottom: 5px;
+            right: 15px;
+            color: #bdc3c7;
+            font-size: 0.8rem;
+            font-family: sans-serif;
         }
 
         .hidden { display: none !important; }
@@ -190,6 +209,8 @@
                 </div>
             </div>
         </div>
+
+        <div class="version">v3.2</div>
     </div>
 
     <script>
@@ -234,7 +255,7 @@
             currentProfile = name;
             streak = 0;
             streakEl.innerText = '0';
-            stickersContainer.innerHTML = ''; // Reset stickers for new session
+            stickersContainer.innerHTML = ''; 
             
             profileScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
@@ -286,20 +307,27 @@
                     html += `<p>Put your finger over <b>${qNum2}</b> of them. How many are left?</p>`;
                 }
             } 
-            // Strategies for Thea (No direct answers)
+            // Strategies for Thea (Updated for v3.2)
             else {
                 if (qOperator === '+') {
-                    let t1 = Math.floor(qNum1/10)*10;
-                    let t2 = Math.floor(qNum2/10)*10;
                     html += `<strong>Split Strategy:</strong><br>`;
-                    html += `1. Add the Tens: <b>${t1} + ${t2} = ?</b><br>`;
+                    html += `1. Add the Tens: <b>${Math.floor(qNum1/10)*10} + ${Math.floor(qNum2/10)*10} = ?</b><br>`;
                     html += `2. Add the Ones: <b>${qNum1%10} + ${qNum2%10} = ?</b><br>`;
-                    html += `3. Add those two answers together.`;
-                } else if (qOperator === '-') {
-                    html += `<strong>Count Up Strategy:</strong><br>`;
-                    html += `Start at <b>${qNum2}</b> and count up to <b>${qNum1}</b>.<br><br>`;
-                    html += `<i>How many steps does it take?</i>`;
-                } else if (qOperator === '×') {
+                    html += `3. Add those answers together.`;
+                } 
+                else if (qOperator === '-') {
+                    // NEW: Column Subtraction Hint
+                    html += `<strong>Column Method:</strong><br>`;
+                    html += `Use the scratchpad to write it like this:<br>`;
+                    html += `<div class="vertical-math">
+                             &nbsp;&nbsp;${qNum1}<br>
+                             - ${qNum2}<br>
+                             -----
+                             </div><br>`;
+                    html += `1. Subtract the Ones: <b>${qNum1%10} - ${qNum2%10}</b><br>`;
+                    html += `2. Subtract the Tens: <b>${Math.floor(qNum1/10)} - ${Math.floor(qNum2/10)}</b>`;
+                } 
+                else if (qOperator === '×') {
                     html += `<strong>Skip Counting:</strong><br>`;
                     html += `Count by <b>${qNum2}</b>, <b>${qNum1}</b> times.<br>`;
                     html += `<i>Ex: ${qNum2}, ${qNum2*2}, ${qNum2*3}... keep going!</i>`;
@@ -342,6 +370,8 @@
                     qAnswer = qNum1 + qNum2;
                 } else if (type < 0.5) {
                     qOperator = '-';
+                    // Generate numbers specifically good for non-borrowing column practice first
+                    // but allow harder ones too.
                     qNum1 = Math.floor(Math.random() * 90) + 20;
                     qNum2 = Math.floor(Math.random() * (qNum1 - 10)) + 5;
                     qAnswer = qNum1 - qNum2;
@@ -370,7 +400,6 @@
                 feedbackEl.innerText = "Correct! 🎉";
                 feedbackEl.className = "feedback correct";
                 
-                // Add Sticker every 5 wins
                 if (streak > 0 && streak % 5 === 0) {
                     addSticker();
                     feedbackEl.innerText = "Correct! NEW STICKER! 🎁";
