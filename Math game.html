@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v2</title>
+    <title>Math Fun v3</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -12,10 +12,12 @@
             --card: #ffffff;
             --text: #333333;
             --success: #2ECC71;
+            --hint-bg: #FFF3CD;
+            --hint-text: #856404;
         }
 
         body {
-            font-family: 'Comic Sans MS', 'Comic Neue', sans-serif; /* Friendlier font for kids */
+            font-family: 'Comic Sans MS', 'Comic Neue', sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -60,11 +62,8 @@
         .btn-submit { background-color: var(--primary); font-size: 1.5rem; }
         .btn-clear { background-color: #95a5a6; width: auto; display: inline-block; padding: 5px 15px; font-size: 0.9rem; margin-top: 5px;}
         
-        .toggle-draw {
-            background: #f1c40f;
-            color: #333;
-            margin-bottom: 5px;
-        }
+        .toggle-draw { background: #f1c40f; color: #333; margin-bottom: 5px; }
+        .btn-teach { background: #E67E22; color: white; margin-bottom: 15px; }
 
         /* Game Elements */
         .header-bar {
@@ -77,11 +76,7 @@
 
         .streak-box { color: #e67e22; font-weight: bold; }
 
-        .question-box {
-            font-size: 3rem;
-            margin: 10px 0;
-            font-weight: bold;
-        }
+        .question-box { font-size: 3rem; margin: 10px 0; font-weight: bold; }
 
         input[type="number"] {
             width: 140px;
@@ -95,9 +90,40 @@
         }
         input[type="number"]:focus { border-color: var(--primary); }
 
+        /* Teach Me Box */
+        #teach-box {
+            display: none;
+            background-color: var(--hint-bg);
+            color: var(--hint-text);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: left;
+            border: 1px solid #ffeeba;
+        }
+        .dot {
+            height: 15px; width: 15px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 2px;
+        }
+        .dot-cross {
+            background-color: #e74c3c;
+            opacity: 0.5;
+            position: relative;
+        }
+        .dot-cross::after {
+            content: "✕";
+            color: white;
+            position: absolute;
+            top: -3px; left: 3px;
+            font-size: 12px;
+        }
+
         /* Scratchpad Canvas */
         #scratch-container {
-            display: none; /* Hidden by default */
+            display: none;
             margin-top: 15px;
             border: 2px dashed #bdc3c7;
             border-radius: 10px;
@@ -106,16 +132,13 @@
         }
         
         canvas {
-            touch-action: none; /* Prevents scrolling while drawing */
+            touch-action: none; 
             width: 100%;
             height: 250px;
             border-radius: 10px;
             cursor: crosshair;
         }
 
-        .helper-text { font-size: 0.8rem; color: #999; margin-top: -5px; margin-bottom: 10px;}
-
-        /* Utilities */
         .hidden { display: none !important; }
         .feedback { height: 25px; font-weight: bold; font-size: 1.2rem; margin-top: 10px; }
         .correct { color: var(--success); }
@@ -141,6 +164,9 @@
             
             <div class="question-box" id="question">2 + 2</div>
 
+            <button class="btn btn-teach" onclick="toggleTeach()">💡 Teach Me How</button>
+            <div id="teach-box"></div>
+
             <input type="number" id="answer-input" placeholder="?" pattern="\d*">
             
             <button class="btn btn-submit" onclick="checkAnswer()">Check Answer</button>
@@ -148,7 +174,7 @@
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
 
-            <button class="btn toggle-draw" onclick="toggleScratchpad()">✏️ Show Working Out</button>
+            <button class="btn toggle-draw" onclick="toggleScratchpad()">✏️ Show Scratchpad</button>
             
             <div id="scratch-container">
                 <canvas id="drawing-board"></canvas>
@@ -160,10 +186,15 @@
     </div>
 
     <script>
-        // GAME LOGIC
+        // GAME STATE
         let currentProfile = '';
-        let currentAnswer = 0;
         let streak = 0;
+        
+        // Current Question Data
+        let qNum1 = 0;
+        let qNum2 = 0;
+        let qOperator = '';
+        let qAnswer = 0;
 
         const profileScreen = document.getElementById('profile-select');
         const gameScreen = document.getElementById('game-area');
@@ -172,13 +203,13 @@
         const inputEl = document.getElementById('answer-input');
         const feedbackEl = document.getElementById('feedback');
         const scratchContainer = document.getElementById('scratch-container');
+        const teachBox = document.getElementById('teach-box');
 
-        // CANVAS LOGIC
+        // CANVAS SETUP
         const canvas = document.getElementById('drawing-board');
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
 
-        // Resize canvas to fit container
         function resizeCanvas() {
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
@@ -186,18 +217,14 @@
             ctx.lineCap = 'round';
             ctx.strokeStyle = '#333';
         }
-
         window.addEventListener('resize', resizeCanvas);
 
         function startGame(name) {
             currentProfile = name;
             streak = 0;
             streakEl.innerText = '0';
-            
             profileScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
-            
-            // Wait for display change to render canvas size correctly
             setTimeout(resizeCanvas, 50);
             generateQuestion();
         }
@@ -208,7 +235,8 @@
             inputEl.value = '';
             feedbackEl.innerText = '';
             clearCanvas();
-            scratchContainer.style.display = 'none'; // Auto hide scratchpad on exit
+            scratchContainer.style.display = 'none';
+            teachBox.style.display = 'none';
         }
 
         function toggleScratchpad() {
@@ -216,115 +244,128 @@
                 scratchContainer.style.display = 'none';
             } else {
                 scratchContainer.style.display = 'block';
-                resizeCanvas(); // Ensure size is correct when opened
+                resizeCanvas();
             }
         }
+        
+        function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-        function clearCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        // Drawing Event Listeners (Touch & Mouse)
-        function startDraw(e) {
-            isDrawing = true;
-            draw(e);
-        }
-        function endDraw() {
-            isDrawing = false;
-            ctx.beginPath();
-        }
-        function draw(e) {
-            if (!isDrawing) return;
-
-            // Get position relative to canvas
-            const rect = canvas.getBoundingClientRect();
-            let x, y;
-
-            if (e.touches) {
-                x = e.touches[0].clientX - rect.left;
-                y = e.touches[0].clientY - rect.top;
-            } else {
-                x = e.clientX - rect.left;
-                y = e.clientY - rect.top;
+        // --- TEACHING LOGIC ---
+        function toggleTeach() {
+            if (teachBox.style.display === 'block') {
+                teachBox.style.display = 'none';
+                return;
             }
+            
+            teachBox.style.display = 'block';
+            let html = '';
 
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x, y);
+            // Visuals for Ella (and small numbers for Thea)
+            if (currentProfile === 'Ella' || (currentProfile === 'Thea' && qNum1 < 10 && qOperator !== '×')) {
+                if (qOperator === '+') {
+                    html += `<p>Count the dots all together:</p>`;
+                    for(let i=0; i<qNum1; i++) html += `<span class="dot"></span>`;
+                    html += ` ➕ `;
+                    for(let i=0; i<qNum2; i++) html += `<span class="dot" style="background-color:#F1C40F"></span>`;
+                } else if (qOperator === '-') {
+                    html += `<p>Start with ${qNum1} and take away ${qNum2}:</p>`;
+                    for(let i=0; i<(qNum1-qNum2); i++) html += `<span class="dot"></span>`;
+                    for(let i=0; i<qNum2; i++) html += `<span class="dot dot-cross"></span>`;
+                }
+            } 
+            // Strategies for Thea
+            else {
+                if (qOperator === '+') {
+                    let t1 = Math.floor(qNum1/10)*10;
+                    let o1 = qNum1 % 10;
+                    let t2 = Math.floor(qNum2/10)*10;
+                    let o2 = qNum2 % 10;
+                    html += `<strong>Split Strategy:</strong><br>`;
+                    html += `1. Add Tens: ${t1} + ${t2} = <strong>${t1+t2}</strong><br>`;
+                    html += `2. Add Ones: ${o1} + ${o2} = <strong>${o1+o2}</strong><br>`;
+                    html += `3. Put together: ${t1+t2} + ${o1+o2} = <strong>${qAnswer}</strong>`;
+                } else if (qOperator === '-') {
+                    html += `<strong>Count Up Strategy:</strong><br>`;
+                    html += `Start at <b>${qNum2}</b> and count up to <b>${qNum1}</b>.<br><br>`;
+                    html += `Or take away tens first:<br>`;
+                    html += `${qNum1} - ${Math.floor(qNum2/10)*10} = ${qNum1 - (Math.floor(qNum2/10)*10)}<br>`;
+                    html += `Then take away ${qNum2%10} more.`;
+                } else if (qOperator === '×') {
+                    html += `<strong>Repeated Addition:</strong><br>`;
+                    html += `This means <b>${qNum1} groups</b> of <b>${qNum2}</b>.<br>`;
+                    let str = [];
+                    for(let i=0; i<qNum1; i++) str.push(qNum2);
+                    if(str.length < 10) html += str.join(" + ") + " = " + qAnswer;
+                } else if (qOperator === '÷') {
+                    html += `<strong>Reverse Multiplication:</strong><br>`;
+                    html += `Ask yourself: <br>`;
+                    html += `What number times <b>${qNum2}</b> equals <b>${qNum1}</b>?<br>`;
+                    html += `❓ × ${qNum2} = ${qNum1}`;
+                }
+            }
+            
+            teachBox.innerHTML = html;
         }
 
-        canvas.addEventListener('mousedown', startDraw);
-        canvas.addEventListener('mouseup', endDraw);
-        canvas.addEventListener('mousemove', draw);
 
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, {passive: false});
-        canvas.addEventListener('touchend', (e) => { e.preventDefault(); endDraw(); }, {passive: false});
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, {passive: false});
-
-
-        // MATH LOGIC
+        // --- MATH GENERATION ---
         function generateQuestion() {
             inputEl.value = '';
             inputEl.focus();
             feedbackEl.innerText = '';
+            teachBox.style.display = 'none'; // Hide hint on new question
             
-            let num1, num2, operator;
-
             if (currentProfile === 'Ella') {
-                // Ella (Age 7): Simple Add/Sub
                 if (Math.random() > 0.4) {
-                    operator = '+';
-                    num1 = Math.floor(Math.random() * 15); 
-                    num2 = Math.floor(Math.random() * 10); 
-                    currentAnswer = num1 + num2;
+                    qOperator = '+';
+                    qNum1 = Math.floor(Math.random() * 10) + 1; 
+                    qNum2 = Math.floor(Math.random() * 10) + 1; 
+                    qAnswer = qNum1 + qNum2;
                 } else {
-                    operator = '-';
-                    num1 = Math.floor(Math.random() * 15) + 5; 
-                    num2 = Math.floor(Math.random() * (num1 - 2)) + 1;
-                    currentAnswer = num1 - num2;
+                    qOperator = '-';
+                    qNum1 = Math.floor(Math.random() * 10) + 5; 
+                    qNum2 = Math.floor(Math.random() * (qNum1 - 2)) + 1;
+                    qAnswer = qNum1 - qNum2;
                 }
             } else {
-                // Thea (Age 10): Complex mix
                 const type = Math.random();
                 if (type < 0.25) { 
-                    operator = '+';
-                    num1 = Math.floor(Math.random() * 80) + 10; 
-                    num2 = Math.floor(Math.random() * 80) + 10;
-                    currentAnswer = num1 + num2;
+                    qOperator = '+';
+                    qNum1 = Math.floor(Math.random() * 80) + 10; 
+                    qNum2 = Math.floor(Math.random() * 80) + 10;
+                    qAnswer = qNum1 + qNum2;
                 } else if (type < 0.5) {
-                    operator = '-';
-                    num1 = Math.floor(Math.random() * 100) + 20;
-                    num2 = Math.floor(Math.random() * (num1 - 10)) + 5;
-                    currentAnswer = num1 - num2;
+                    qOperator = '-';
+                    qNum1 = Math.floor(Math.random() * 90) + 20;
+                    qNum2 = Math.floor(Math.random() * (qNum1 - 10)) + 5;
+                    qAnswer = qNum1 - qNum2;
                 } else if (type < 0.8) {
-                    operator = '×';
-                    num1 = Math.floor(Math.random() * 12) + 2; 
-                    num2 = Math.floor(Math.random() * 12) + 2;
-                    currentAnswer = num1 * num2;
+                    qOperator = '×';
+                    qNum1 = Math.floor(Math.random() * 10) + 2; 
+                    qNum2 = Math.floor(Math.random() * 10) + 2;
+                    qAnswer = qNum1 * qNum2;
                 } else {
-                    operator = '÷';
-                    num2 = Math.floor(Math.random() * 10) + 2; 
-                    currentAnswer = Math.floor(Math.random() * 11) + 1; 
-                    num1 = currentAnswer * num2; 
+                    qOperator = '÷';
+                    qNum2 = Math.floor(Math.random() * 9) + 2; 
+                    qAnswer = Math.floor(Math.random() * 10) + 1; 
+                    qNum1 = qAnswer * qNum2; 
                 }
             }
-            questionEl.innerText = `${num1} ${operator} ${num2}`;
+            questionEl.innerText = `${qNum1} ${qOperator} ${qNum2}`;
         }
 
         function checkAnswer() {
             const userVal = parseInt(inputEl.value);
             if (isNaN(userVal)) return;
 
-            if (userVal === currentAnswer) {
+            if (userVal === qAnswer) {
                 streak++;
                 streakEl.innerText = streak;
                 feedbackEl.innerText = "Correct! 🎉";
                 feedbackEl.className = "feedback correct";
-                clearCanvas(); // Optional: Auto-clear pad on correct answer?
-                setTimeout(generateQuestion, 1000);
+                setTimeout(generateQuestion, 1200);
             } else {
-                streak = 0; // Reset streak on error
+                streak = 0;
                 streakEl.innerText = streak;
                 feedbackEl.innerText = "Try again! ❌";
                 feedbackEl.className = "feedback wrong";
@@ -333,10 +374,32 @@
             }
         }
         
-        // Enter key support
         inputEl.addEventListener("keypress", function(event) {
             if (event.key === "Enter") checkAnswer();
         });
+
+        // DRAWING HANDLERS
+        function startDraw(e) { isDrawing = true; draw(e); }
+        function endDraw() { isDrawing = false; ctx.beginPath(); }
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            let x, y;
+            if (e.touches) {
+                x = e.touches[0].clientX - rect.left;
+                y = e.touches[0].clientY - rect.top;
+            } else {
+                x = e.clientX - rect.left;
+                y = e.clientY - rect.top;
+            }
+            ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
+        }
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, {passive: false});
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); endDraw(); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, {passive: false});
 
     </script>
 </body>
