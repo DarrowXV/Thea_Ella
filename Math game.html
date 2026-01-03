@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Fun v3</title>
+    <title>Math Fun v3.1</title>
     <style>
         :root {
             --primary: #4A90E2;
@@ -108,17 +108,19 @@
             display: inline-block;
             margin: 2px;
         }
-        .dot-cross {
-            background-color: #e74c3c;
-            opacity: 0.5;
-            position: relative;
+        
+        /* Stickers Area */
+        #sticker-area {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px dashed #eee;
+            min-height: 50px;
         }
-        .dot-cross::after {
-            content: "✕";
-            color: white;
-            position: absolute;
-            top: -3px; left: 3px;
-            font-size: 12px;
+        .sticker { font-size: 2rem; margin: 5px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: inline-block; }
+        
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
         }
 
         /* Scratchpad Canvas */
@@ -171,6 +173,11 @@
             
             <button class="btn btn-submit" onclick="checkAnswer()">Check Answer</button>
             <div class="feedback" id="feedback"></div>
+            
+            <div id="sticker-area">
+                <div style="font-size: 0.9rem; color: #aaa; margin-bottom: 5px;">Your Stickers (Get 5 in a row!)</div>
+                <div id="stickers"></div>
+            </div>
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
 
@@ -195,6 +202,9 @@
         let qNum2 = 0;
         let qOperator = '';
         let qAnswer = 0;
+        
+        // Sticker Collection
+        const stickers = ['⭐', '🦄', '🦖', '🚀', '🌈', '🍦', '🍩', '🦋', '🐼', '🐱', '🐶', '🐸', '🐨', '🤖', '👾', '🎃', '⚽', '🎨'];
 
         const profileScreen = document.getElementById('profile-select');
         const gameScreen = document.getElementById('game-area');
@@ -204,6 +214,7 @@
         const feedbackEl = document.getElementById('feedback');
         const scratchContainer = document.getElementById('scratch-container');
         const teachBox = document.getElementById('teach-box');
+        const stickersContainer = document.getElementById('stickers');
 
         // CANVAS SETUP
         const canvas = document.getElementById('drawing-board');
@@ -223,6 +234,8 @@
             currentProfile = name;
             streak = 0;
             streakEl.innerText = '0';
+            stickersContainer.innerHTML = ''; // Reset stickers for new session
+            
             profileScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             setTimeout(resizeCanvas, 50);
@@ -250,7 +263,7 @@
         
         function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-        // --- TEACHING LOGIC ---
+        // --- UPDATED TEACHING LOGIC ---
         function toggleTeach() {
             if (teachBox.style.display === 'block') {
                 teachBox.style.display = 'none';
@@ -263,44 +276,37 @@
             // Visuals for Ella (and small numbers for Thea)
             if (currentProfile === 'Ella' || (currentProfile === 'Thea' && qNum1 < 10 && qOperator !== '×')) {
                 if (qOperator === '+') {
-                    html += `<p>Count the dots all together:</p>`;
+                    html += `<p>Here are the groups. Can you count them all?</p>`;
                     for(let i=0; i<qNum1; i++) html += `<span class="dot"></span>`;
                     html += ` ➕ `;
                     for(let i=0; i<qNum2; i++) html += `<span class="dot" style="background-color:#F1C40F"></span>`;
                 } else if (qOperator === '-') {
-                    html += `<p>Start with ${qNum1} and take away ${qNum2}:</p>`;
-                    for(let i=0; i<(qNum1-qNum2); i++) html += `<span class="dot"></span>`;
-                    for(let i=0; i<qNum2; i++) html += `<span class="dot dot-cross"></span>`;
+                    html += `<p>Here are <b>${qNum1}</b> dots.</p>`;
+                    for(let i=0; i<qNum1; i++) html += `<span class="dot"></span>`;
+                    html += `<p>Put your finger over <b>${qNum2}</b> of them. How many are left?</p>`;
                 }
             } 
-            // Strategies for Thea
+            // Strategies for Thea (No direct answers)
             else {
                 if (qOperator === '+') {
                     let t1 = Math.floor(qNum1/10)*10;
-                    let o1 = qNum1 % 10;
                     let t2 = Math.floor(qNum2/10)*10;
-                    let o2 = qNum2 % 10;
                     html += `<strong>Split Strategy:</strong><br>`;
-                    html += `1. Add Tens: ${t1} + ${t2} = <strong>${t1+t2}</strong><br>`;
-                    html += `2. Add Ones: ${o1} + ${o2} = <strong>${o1+o2}</strong><br>`;
-                    html += `3. Put together: ${t1+t2} + ${o1+o2} = <strong>${qAnswer}</strong>`;
+                    html += `1. Add the Tens: <b>${t1} + ${t2} = ?</b><br>`;
+                    html += `2. Add the Ones: <b>${qNum1%10} + ${qNum2%10} = ?</b><br>`;
+                    html += `3. Add those two answers together.`;
                 } else if (qOperator === '-') {
                     html += `<strong>Count Up Strategy:</strong><br>`;
                     html += `Start at <b>${qNum2}</b> and count up to <b>${qNum1}</b>.<br><br>`;
-                    html += `Or take away tens first:<br>`;
-                    html += `${qNum1} - ${Math.floor(qNum2/10)*10} = ${qNum1 - (Math.floor(qNum2/10)*10)}<br>`;
-                    html += `Then take away ${qNum2%10} more.`;
+                    html += `<i>How many steps does it take?</i>`;
                 } else if (qOperator === '×') {
-                    html += `<strong>Repeated Addition:</strong><br>`;
-                    html += `This means <b>${qNum1} groups</b> of <b>${qNum2}</b>.<br>`;
-                    let str = [];
-                    for(let i=0; i<qNum1; i++) str.push(qNum2);
-                    if(str.length < 10) html += str.join(" + ") + " = " + qAnswer;
+                    html += `<strong>Skip Counting:</strong><br>`;
+                    html += `Count by <b>${qNum2}</b>, <b>${qNum1}</b> times.<br>`;
+                    html += `<i>Ex: ${qNum2}, ${qNum2*2}, ${qNum2*3}... keep going!</i>`;
                 } else if (qOperator === '÷') {
-                    html += `<strong>Reverse Multiplication:</strong><br>`;
+                    html += `<strong>Reverse It:</strong><br>`;
                     html += `Ask yourself: <br>`;
-                    html += `What number times <b>${qNum2}</b> equals <b>${qNum1}</b>?<br>`;
-                    html += `❓ × ${qNum2} = ${qNum1}`;
+                    html += `❓ × <b>${qNum2}</b> = <b>${qNum1}</b>`;
                 }
             }
             
@@ -313,7 +319,7 @@
             inputEl.value = '';
             inputEl.focus();
             feedbackEl.innerText = '';
-            teachBox.style.display = 'none'; // Hide hint on new question
+            teachBox.style.display = 'none'; 
             
             if (currentProfile === 'Ella') {
                 if (Math.random() > 0.4) {
@@ -363,6 +369,13 @@
                 streakEl.innerText = streak;
                 feedbackEl.innerText = "Correct! 🎉";
                 feedbackEl.className = "feedback correct";
+                
+                // Add Sticker every 5 wins
+                if (streak > 0 && streak % 5 === 0) {
+                    addSticker();
+                    feedbackEl.innerText = "Correct! NEW STICKER! 🎁";
+                }
+
                 setTimeout(generateQuestion, 1200);
             } else {
                 streak = 0;
@@ -374,6 +387,14 @@
             }
         }
         
+        function addSticker() {
+            const sticker = stickers[Math.floor(Math.random() * stickers.length)];
+            const span = document.createElement('span');
+            span.className = 'sticker';
+            span.innerText = sticker;
+            stickersContainer.appendChild(span);
+        }
+
         inputEl.addEventListener("keypress", function(event) {
             if (event.key === "Enter") checkAnswer();
         });
